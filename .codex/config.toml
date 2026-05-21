@@ -1,0 +1,3 @@
+[mcp_servers.corva-ui]
+command = "npx"
+args = ["-p", "@corva/ui", "corva-ui-mcp"]
