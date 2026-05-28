@@ -1,5 +1,9 @@
 .container {
   text-align: center;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 @keyframes App-logo-spin {

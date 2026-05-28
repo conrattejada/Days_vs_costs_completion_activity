@@ -80,7 +80,7 @@ const groupByStage = (items: MockCostItem[]): StageGroup[] => {
 
 const StepsCostGraph = () => {
 	const groupedData = useMemo(() => groupByStage(MockDataFromPlanOw as MockCostItem[]), []);
-    console.log(groupedData)
+
 	const chartOptions = useMemo<Highcharts.Options>(() => {
 		const stageHorizontalSeriesData: ([number, number] | null)[] = [];
 		const stageVerticalSeriesData: ([number, number] | null)[] = [];
@@ -121,7 +121,8 @@ const StepsCostGraph = () => {
 		return {
 			chart: {
 				type: 'line',
-				height: 420,
+				height: null,
+				zoomType: 'x',
 				backgroundColor: 'var(--palette-background-b-6)',
 			},
 			title: {
@@ -240,11 +241,15 @@ const StepsCostGraph = () => {
 		};
 	}, [groupedData]);
 
-	console.log('Grouped steps data:', groupedData);
-
 	return (
 		<div className={styles.stepsCostGraph}>
-			<HighchartsReact highcharts={Highcharts} options={chartOptions} />
+			<div className={styles.chartWrapper}>
+				<HighchartsReact
+					highcharts={Highcharts}
+					options={chartOptions}
+					containerProps={{ className: styles.chartContainer }}
+				/>
+			</div>
 		</div>
 	);
 };
