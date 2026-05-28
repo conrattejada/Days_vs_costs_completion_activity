@@ -3,6 +3,7 @@ import { useAppCommons } from '@corva/ui/effects';
 
 import { DEFAULT_SETTINGS } from './constants';
 import logo from './assets/logo.svg';
+import StepsCostGraph from './components/StepsCostGraph';
 
 import styles from './App.scss';
 
@@ -17,31 +18,7 @@ const App = () => {
   return (
     <AppContainer header={<AppHeader />} testId={appKey}>
       <div className={styles.container}>
-        <img src={logo} alt="logo" className={styles.logo} />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-          <br />
-          <br />
-        </p>
-        <p>
-          Frac Fleet: <span data-testid="fracFleet">{fracFleet?.name || 'No Frac Fleet'}</span>
-          <br />
-          Wells: <span data-testid="wellsList">{wellsList.map(well => well?.name).join(', ')}</span>
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </div>
-      <div>
-        Settings &quot;Example&quot; checkbox is{' '}
-        <span data-testid="exampleCheckboxState">
-          {isExampleCheckboxChecked ? 'checked' : 'unchecked'}
-        </span>
+        <StepsCostGraph />
       </div>
     </AppContainer>
   );
