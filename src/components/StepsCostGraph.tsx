@@ -126,7 +126,7 @@ const StepsCostGraph = () => {
 				backgroundColor: 'var(--palette-background-b-6)',
 			},
 			title: {
-				text: 'Stages x Cost (Step)',
+				text: 'Steps x Cost (Step)',
 			},
 			xAxis: {
 				title: {
@@ -138,18 +138,20 @@ const StepsCostGraph = () => {
 			yAxis: [
 				{
 					title: {
-						text: 'Stage',
+						text: 'Step',
 					},
 					reversed: true,
 					allowDecimals: false,
 					tickInterval: 1,
 					min: 1,
+					gridLineWidth: 0,
 				},
 				{
 					title: {
 						text: 'Total Cost',
 					},
 					opposite: true,
+					gridLineWidth: 1,
 					labels: {
 						formatter() {
 							return `$${Highcharts.numberFormat(Number(this.value), 0)}`;
@@ -165,7 +167,7 @@ const StepsCostGraph = () => {
 						interval => xValue >= interval.start && xValue <= interval.end
 					);
 					const intervalLabel = currentInterval
-						? `Stage ${currentInterval.stage} | Duration ${Highcharts.numberFormat(currentInterval.totalDuration, 2)} | Cumulative Cost $${Highcharts.numberFormat(currentInterval.cumulativeCost, 0)}`
+						? `Step ${currentInterval.stage} | Duration ${Highcharts.numberFormat(currentInterval.totalDuration, 2)} | Cumulative Cost $${Highcharts.numberFormat(currentInterval.cumulativeCost, 0)}`
 						: 'Out of range';
 					const pointsHtml = (this.points || [])
 						.map(point => {
@@ -208,7 +210,7 @@ const StepsCostGraph = () => {
 				},
 				{
 					type: 'line',
-					name: 'Stage',
+					name: 'Step',
 					data: stageHorizontalSeriesData,
 					color: 'var(--palette-info-main)',
 					yAxis: 0,
@@ -219,7 +221,7 @@ const StepsCostGraph = () => {
 				},
 				{
 					type: 'line',
-					name: 'Stage transitions',
+					name: 'Step transitions',
 					data: stageVerticalSeriesData,
 					color: 'var(--palette-info-main)',
 					yAxis: 0,
