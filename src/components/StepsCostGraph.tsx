@@ -1,21 +1,22 @@
 import { useMemo } from 'react';
+import { Text } from '@corva/ui/componentsV2';
+import { useAppCommons } from '@corva/ui/effects';
 
 import Highcharts from 'highcharts';
 import HighchartsReact from 'highcharts-react-official';
 
-import { MockDataFromPlanOw } from '../__mocks__/mockConvertData';
-//import { MockData as MockDataFromPlanOw } from '../__mocks__/mocksCost';
+import useCompletionWorksteps from '../hooks/useCompletionWorksteps';
 import styles from './StepsCostGraph.scss';
 
 const INITIAL_STEP = 1040;
 const STAGE_SIZE = 10;
 
-interface MockCostItem {
+interface WorkStepCostItem {
 	_id: string;
 	data: {
 		step_no: number;
-		cost: number;
-		duration: number;
+		cost: number | null;
+		duration: number | null;
 	};
 }
 
@@ -25,7 +26,7 @@ interface StageGroup {
 	stageEnd: number;
 	totalCost: number;
 	totalDuration: number;
-	items: MockCostItem[];
+	items: WorkStepCostItem[];
 }
 
 interface StageInterval {
@@ -41,9 +42,11 @@ const getStageFromStep = (stepNo: number): number => {
 	return Math.floor((stepNo - INITIAL_STEP) / STAGE_SIZE) + 1;
 };
 
-const groupByStage = (items: MockCostItem[]): StageGroup[] => {
+const groupByStage = (items: WorkStepCostItem[]): StageGroup[] => {
 	const groupedMap = items.reduce<Map<number, StageGroup>>((acc, item) => {
 		const stepNo = item.data.step_no;
+		const itemCost = item.data.cost ?? 0;
+		const itemDuration = item.data.duration ?? 0;
 
 		if (stepNo < INITIAL_STEP) {
 			return acc;
@@ -60,16 +63,16 @@ const groupByStage = (items: MockCostItem[]): StageGroup[] => {
 				stage,
 				stageStart,
 				stageEnd,
-				totalCost: item.data.cost,
-				totalDuration: item.data.duration,
+				totalCost: itemCost,
+				totalDuration: itemDuration,
 				items: [item],
 			});
 
 			return acc;
 		}
 
-		existingGroup.totalCost += item.data.cost;
-		existingGroup.totalDuration += item.data.duration;
+		existingGroup.totalCost += itemCost;
+		existingGroup.totalDuration += itemDuration;
 		existingGroup.items.push(item);
 
 		return acc;
@@ -79,7 +82,29 @@ const groupByStage = (items: MockCostItem[]): StageGroup[] => {
 };
 
 const StepsCostGraph = () => {
-	const groupedData = useMemo(() => groupByStage(MockDataFromPlanOw as MockCostItem[]), []);
+	const { well } = useAppCommons();
+	const asset_id = well?.asset_id;
+	const { workSteps, loading, error } = useCompletionWorksteps({
+		asset_id: 71448108,
+		company_id: 375
+	});
+	console.log(workSteps)
+	const normalizedWorkSteps = useMemo<WorkStepCostItem[]>(
+		() =>
+			workSteps
+				.map(item => ({
+					_id: item._id,
+					data: {
+						step_no: Number(item.data.step_no),
+						cost: item.data.planned_cost,
+						duration: item.data.planned_duration,
+					},
+				}))
+				.filter(item => Number.isFinite(item.data.step_no)),
+		[workSteps]
+	);
+
+	const groupedData = useMemo(() => groupByStage(normalizedWorkSteps), [normalizedWorkSteps]);
 
 	const chartOptions = useMemo<Highcharts.Options>(() => {
 		const stageHorizontalSeriesData: ([number, number] | null)[] = [];
@@ -242,6 +267,30 @@ const StepsCostGraph = () => {
 			},
 		};
 	}, [groupedData]);
+
+	if (loading) {
+		return (
+			<div className={styles.stepsCostGraph}>
+				<Text>Loading worksteps...</Text>
+			</div>
+		);
+	}
+
+	if (error) {
+		return (
+			<div className={styles.stepsCostGraph}>
+				<Text>Failed to load worksteps data.</Text>
+			</div>
+		);
+	}
+
+	if (!groupedData.length) {
+		return (
+			<div className={styles.stepsCostGraph}>
+				<Text>No worksteps data found for this asset.</Text>
+			</div>
+		);
+	}
 
 	return (
 		<div className={styles.stepsCostGraph}>
