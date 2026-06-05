@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import { Text } from '@corva/ui/componentsV2';
-import { useAppCommons } from '@corva/ui/effects';
 
 import Highcharts from 'highcharts';
 import HighchartsReact from 'highcharts-react-official';
@@ -8,25 +7,27 @@ import HighchartsReact from 'highcharts-react-official';
 import useCompletionWorksteps from '../hooks/useCompletionWorksteps';
 import styles from './StepsCostGraph.scss';
 
-const INITIAL_STEP = 1040;
 const STAGE_SIZE = 10;
+const INITIAL_STEP = 1040;
 
 interface WorkStepCostItem {
 	_id: string;
 	data: {
+		step?: number;
 		step_no: number;
-		cost: number | null;
-		duration: number | null;
+		planned_cost: number | null;
+		planned_duration: number | null;
+		actual_cost: number | null;
+		actual_duration: number | null;
+		time_from: number;
+		time_to: number;
 	};
 }
 
 interface StageGroup {
 	stage: number;
-	stageStart: number;
-	stageEnd: number;
 	totalCost: number;
 	totalDuration: number;
-	items: WorkStepCostItem[];
 }
 
 interface StageInterval {
@@ -39,72 +40,80 @@ interface StageInterval {
 }
 
 const getStageFromStep = (stepNo: number): number => {
+	if (stepNo < INITIAL_STEP) {
+		return 1;
+	}
+
 	return Math.floor((stepNo - INITIAL_STEP) / STAGE_SIZE) + 1;
 };
 
-const groupByStage = (items: WorkStepCostItem[]): StageGroup[] => {
-	const groupedMap = items.reduce<Map<number, StageGroup>>((acc, item) => {
-		const stepNo = item.data.step_no;
-		const itemCost = item.data.cost ?? 0;
-		const itemDuration = item.data.duration ?? 0;
+interface StepsCostGraphProps {
+	assetId?: number;
+	companyId?: number;
+}
 
-		if (stepNo < INITIAL_STEP) {
-			return acc;
-		}
-
-		const stage = getStageFromStep(stepNo);
-		const existingGroup = acc.get(stage);
-
-		if (!existingGroup) {
-			const stageStart = INITIAL_STEP + (stage - 1) * STAGE_SIZE;
-			const stageEnd = stageStart + STAGE_SIZE - 1;
-
-			acc.set(stage, {
-				stage,
-				stageStart,
-				stageEnd,
-				totalCost: itemCost,
-				totalDuration: itemDuration,
-				items: [item],
-			});
-
-			return acc;
-		}
-
-		existingGroup.totalCost += itemCost;
-		existingGroup.totalDuration += itemDuration;
-		existingGroup.items.push(item);
-
-		return acc;
-	}, new Map<number, StageGroup>());
-
-	return Array.from(groupedMap.values()).sort((a, b) => a.stage - b.stage);
-};
-
-const StepsCostGraph = () => {
-	const { well } = useAppCommons();
-	const asset_id = well?.asset_id;
+const StepsCostGraph = ({ assetId, companyId }: StepsCostGraphProps) => {
 	const { workSteps, loading, error } = useCompletionWorksteps({
-		asset_id: 71448108,
-		company_id: 375
+		asset_id: assetId,
+		company_id: companyId,
+		enabled: Boolean(assetId),
 	});
-	console.log(workSteps)
+
 	const normalizedWorkSteps = useMemo<WorkStepCostItem[]>(
 		() =>
 			workSteps
 				.map(item => ({
 					_id: item._id,
 					data: {
+						step: getStageFromStep(Number(item.data.step_no)) || 0,
 						step_no: Number(item.data.step_no),
-						cost: item.data.planned_cost,
-						duration: item.data.planned_duration,
+						planned_cost: item.data.planned_cost || 0,
+						planned_duration: item.data.planned_duration || 0,
+						actual_cost: (item.data.planned_cost || 0) + 5000,
+						actual_duration: item.data.actual_duration || 0,
+						time_from: item.data.time_from,
+						time_to: item.data.time_to,
 					},
 				}))
-				.filter(item => Number.isFinite(item.data.step_no)),
+				.filter(
+					item =>
+						Number.isFinite(item.data.step_no) &&
+						Number.isFinite(item.data.time_from) &&
+						Number.isFinite(item.data.time_to)
+				),
 		[workSteps]
 	);
 
-	const groupedData = useMemo(() => groupByStage(normalizedWorkSteps), [normalizedWorkSteps]);
+
+	const groupedData = useMemo<StageGroup[]>(() => {
+		const groupedMap = normalizedWorkSteps.reduce<Map<number, StageGroup>>((acc, item) => {
+			const stage = item.data.step;
+
+			if (!stage || !Number.isFinite(stage) || stage < 1) {
+				return acc;
+			}
+
+			const existingGroup = acc.get(stage);
+			const itemCost = Number(item.data.actual_cost || 0);
+			const itemDuration = Number(item.data.actual_duration || 0);
+
+			if (!existingGroup) {
+				acc.set(stage, {
+					stage,
+					totalCost: itemCost,
+					totalDuration: itemDuration,
+				});
+				return acc;
+			}
+
+			existingGroup.totalCost += itemCost;
+			existingGroup.totalDuration += itemDuration;
+
+			return acc;
+		}, new Map<number, StageGroup>());
+
+		return Array.from(groupedMap.values()).sort((a, b) => a.stage - b.stage);
+	}, [normalizedWorkSteps]);
 
 	const chartOptions = useMemo<Highcharts.Options>(() => {
 		const stageHorizontalSeriesData: ([number, number] | null)[] = [];
@@ -151,7 +160,7 @@ const StepsCostGraph = () => {
 				backgroundColor: 'var(--palette-background-b-6)',
 			},
 			title: {
-				text: 'Steps x Cost (Step)',
+				text: 'Stages x Cost (Step)',
 			},
 			xAxis: {
 				title: {
@@ -163,20 +172,22 @@ const StepsCostGraph = () => {
 			yAxis: [
 				{
 					title: {
-						text: 'Step',
+						text: 'Stage',
 					},
 					reversed: true,
 					allowDecimals: false,
 					tickInterval: 1,
 					min: 1,
+					max: groupedData.length || undefined,
 					gridLineWidth: 0,
 				},
 				{
 					title: {
-						text: 'Total Cost',
+						text: 'Actual Cost',
 					},
 					opposite: true,
 					gridLineWidth: 1,
+					min: 0,
 					labels: {
 						formatter() {
 							return `$${Highcharts.numberFormat(Number(this.value), 0)}`;
@@ -192,71 +203,69 @@ const StepsCostGraph = () => {
 						interval => xValue >= interval.start && xValue <= interval.end
 					);
 					const intervalLabel = currentInterval
-						? `Step ${currentInterval.stage} | Duration ${Highcharts.numberFormat(currentInterval.totalDuration, 2)} | Cumulative Cost $${Highcharts.numberFormat(currentInterval.cumulativeCost, 0)}`
+						? `Stage ${currentInterval.stage} | Duration ${Highcharts.numberFormat(currentInterval.totalDuration, 2)} | Cumulative Cost $${Highcharts.numberFormat(currentInterval.cumulativeCost, 0)}`
 						: 'Out of range';
 					const pointsHtml = (this.points || [])
 						.map(point => {
 							const value =
-								point.series.name === 'Total Cost'
+								point.series.name.includes('Cost')
 									? `$${Highcharts.numberFormat(Number(point.y), 0)}`
 									: Highcharts.numberFormat(Number(point.y), 0);
-							return `<span style=\"color:${point.color}\">●</span> ${point.series.name}: <b>${value}</b>`;
+							return `<span style="color:${point.color}">●</span> ${point.series.name}: <b>${value}</b>`;
 						})
 						.join('<br/>');
 
 					return `<b>${intervalLabel}</b><br/>X: ${Highcharts.numberFormat(xValue, 2)}<br/>${pointsHtml}`;
 				},
 			},
+			plotOptions: {
+				series: {
+					stickyTracking: false,
+					findNearestPointBy: 'xy',
+				},
+			},
 			series: [
 				{
 					type: 'line',
-					name: 'Total Cost',
+					name: 'Actual Cost',
 					data: costHorizontalSeriesData,
 					color: 'var(--palette-warning-main)',
 					yAxis: 1,
 					lineWidth: 3,
-					marker: {
-						enabled: false,
-					},
+					marker: { enabled: false },
 				},
 				{
 					type: 'line',
-					name: 'Total Cost transitions',
+					name: 'Actual Cost transitions',
 					data: costVerticalSeriesData,
 					color: 'var(--palette-warning-main)',
 					yAxis: 1,
 					lineWidth: 3,
 					dashStyle: 'ShortDot',
+					marker: { enabled: false },
 					showInLegend: false,
 					enableMouseTracking: false,
-					marker: {
-						enabled: false,
-					},
 				},
 				{
 					type: 'line',
-					name: 'Step',
+					name: 'Stage',
 					data: stageHorizontalSeriesData,
 					color: 'var(--palette-info-main)',
 					yAxis: 0,
 					lineWidth: 2,
-					marker: {
-						enabled: false,
-					},
+					marker: { enabled: false },
 				},
 				{
 					type: 'line',
-					name: 'Step transitions',
+					name: 'Stage transitions',
 					data: stageVerticalSeriesData,
 					color: 'var(--palette-info-main)',
 					yAxis: 0,
 					lineWidth: 2,
 					dashStyle: 'ShortDot',
+					marker: { enabled: false },
 					showInLegend: false,
 					enableMouseTracking: false,
-					marker: {
-						enabled: false,
-					},
 				},
 			],
 			legend: {
@@ -284,10 +293,10 @@ const StepsCostGraph = () => {
 		);
 	}
 
-	if (!groupedData.length) {
+	if (!normalizedWorkSteps.length) {
 		return (
 			<div className={styles.stepsCostGraph}>
-				<Text>No worksteps data found for this asset.</Text>
+				<Text>{assetId ? 'No worksteps data found for this asset.' : 'Select a well to load data.'}</Text>
 			</div>
 		);
 	}

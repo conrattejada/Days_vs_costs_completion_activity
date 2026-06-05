@@ -66,7 +66,7 @@ const useCompletionWorksteps = ({
   const [workSteps, setWorkSteps] = useState<WorkStepRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
-    console.log('useCompletionWorksteps called with:', { asset_id, company_id, enabled });
+
   const refetch = useCallback(async () => {
     if (!asset_id || !enabled) {
       setWorkSteps([]);
@@ -80,7 +80,6 @@ const useCompletionWorksteps = ({
 
     try {
       const data = await fetchWorkSteps({ asset_id, company_id });
-      console.log('Fetched worksteps:', data);
       setWorkSteps(data);
     } catch (unknownError) {
       setWorkSteps([]);
@@ -88,7 +87,7 @@ const useCompletionWorksteps = ({
     } finally {
       setLoading(false);
     }
-  }, [asset_id, company_id, enabled, getDataAppStorage]);
+  }, [asset_id, company_id, enabled]);
 
   useEffect(() => {
     let isMounted = true;

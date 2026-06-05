@@ -1319,7 +1319,7 @@
     jsx-ast-utils "^3.2.1"
     requireindex "^1.2.0"
 
-"@corva/ui@latest":
+"@corva/ui@^3.59.0":
   version "3.59.0"
   resolved "https://registry.yarnpkg.com/@corva/ui/-/ui-3.59.0.tgz#66d27c1ae1466ce80d12f1481c4600efbee0dbeb"
   integrity sha512-a/zpjgNQUR8xCp7edffG/6wM2kHjhjizKCI+V7ZKC33oxHsX0lX3Q2RQ2thQe4c2Od49P80kZvD3OOUMCwlqqg==
